@@ -1,142 +1,106 @@
-import streamlit as st
-import pandas as pd
-import tempfile
-import os
-from pathlib import Path
+"""
+AutoML Expert System - Main Interface.
 
+Streamlit application for automated machine learning.
+"""
+
+
+import streamlit as st
 from automl_core.pipeline.config import PipelineConfig, PreprocessingConfig, ModelConfig
 from automl_core.pipeline.orchestrator import AutoMLPipeline
-from automl_core.models.registry import ModelRegistry
 
-# Конфиг страницы
-st.set_page_config(page_title="AutoML Expert System", page_icon="🤖", layout="wide")
+from interface.state import initialize_state, clear_file, set_report
+from interface.components import (
+    render_file_upload,
+    render_target_selector,
+    render_preprocessing_settings,
+    render_model_settings,
+    render_results,
+)
+from interface.styles import get_custom_css
 
-# Заголовок
-st.title("🤖 AutoML Expert System")
-st.markdown("---")
 
-# Сайдбар с настройками
-st.sidebar.header("⚙️ Настройки пайплайна")
+def main():
+    """Main application entry point."""
 
-uploaded_file = st.file_uploader("📁 Загрузите датасет (CSV)", type=["csv"])
-
-if uploaded_file:
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp:
-        tmp.write(uploaded_file.getvalue())
-        tmp_path = tmp.name
-
-    df_preview = pd.read_csv(tmp_path)
-    st.subheader("📊 Предпросмотр данных")
-    st.dataframe(df_preview.head())
-
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Записей", df_preview.shape[0])
-    with col2:
-        st.metric("Признаков", df_preview.shape[1])
-    with col3:
-        st.metric("Пропуски", df_preview.isna().sum().sum())
-
-    target_col = st.selectbox("🎯 Целевая переменная", df_preview.columns.tolist())
-
-    if df_preview[target_col].dtype in ["object", "category", "bool"]:
-        task_type = "classification"
-        st.info("📌 Определена задача: **Классификация**")
-    else:
-        task_type = "regression"
-        st.info("📌 Определена задача: **Регрессия**")
-
-    st.sidebar.subheader("Предобработка")
-    fill_method = st.sidebar.selectbox("Заполнение пропусков", ["median", "mean", "most_frequent"])
-    encode_method = st.sidebar.selectbox("Кодирование категориальных", ["onehot", "label"])
-    scale = st.sidebar.checkbox("Масштабирование", value=True)
-    handle_outliers = st.sidebar.checkbox("Обработка выбросов", value=False)
-
-    st.sidebar.subheader("Модели")
-    registry = ModelRegistry()
-    available_models = registry.get_available_models(task_type)
-    selected_models = st.sidebar.multiselect(
-        "Выберите модели для обучения", available_models, default=["catboost", "lightgbm"][:len(available_models)]
+    st.set_page_config(
+        page_title="AutoML Expert System",
+        page_icon="🤖",
+        layout="wide"
     )
 
-    st.sidebar.subheader("Оптимизация")
-    tune_hyperparams = st.sidebar.checkbox("Оптимизация гиперпараметров (Optuna)", value=False)
-    n_trials = st.sidebar.slider("Количество испытаний Optuna", 10, 100, 30) if tune_hyperparams else 30
+    st.markdown(get_custom_css(), unsafe_allow_html=True)
+
+    initialize_state()
+
+    st.title("🤖 AutoML Expert System")
+    st.markdown("---")
+
+    if not render_file_upload():
+        return
+    
+    df = st.session_state.df_preview
+    
+    st.markdown("---")
+
+    task_type = render_target_selector(df)
+    
+    st.markdown("---")
+
+    preprocess_config = render_preprocessing_settings()
+    model_config = render_model_settings(task_type)
 
     st.markdown("---")
     if st.button("🚀 Запустить AutoML", type="primary", use_container_width=True):
-        if not selected_models:
-            st.error("Выберите хотя бы одну модель!")
-        else:
-            with st.spinner("⏳ Обучение моделей... Это может занять несколько минут"):
-                try:
-                    config = PipelineConfig(
-                        target_column=target_col,
-                        task_type=task_type,
-                        preprocessing=PreprocessingConfig(
-                            fill_missing=fill_method,
-                            encode_categorical=encode_method,
-                            scale=scale,
-                            handle_outliers=handle_outliers,
-                        ),
-                        models=[
-                            ModelConfig(name=m, tune_hyperparams=tune_hyperparams, n_trials=n_trials)
-                            for m in selected_models
-                        ],
-                    )
+        if not model_config["selected_models"]:
+            st.error("❌ Выберите хотя бы одну модель!")
+            return
+        
+        with st.spinner("⏳ Обучение моделей..."):
+            try:
+                target_col = st.session_state.get("target_selector", df.columns[0])
+                if target_col is None or target_col not in df.columns:
+                    target_col = df.columns[0]
 
-                    pipeline = AutoMLPipeline(config)
-                    report = pipeline.run(tmp_path)
-
-                    st.success("✅ Обучение завершено!")
-
-                    st.subheader("🏆 Результаты моделей")
-                    if report.get("results"):
-                        results_df = pd.DataFrame(
-                            [
-                                {
-                                    "Модель": r.get("model"),
-                                    "Accuracy": r.get("metrics", {}).get("accuracy", "-"),
-                                    "F1": r.get("metrics", {}).get("f1", "-"),
-                                    "AUC-ROC": r.get("metrics", {}).get("auc_roc", "-"),
-                                    "RMSE": r.get("metrics", {}).get("rmse", "-"),
-                                    "R²": r.get("metrics", {}).get("r2", "-"),
-                                    "CV Mean": r.get("metrics", {}).get("cv_mean", "-"),
-                                }
-                                for r in report["results"]
-                                if "error" not in r
-                            ]
+                config = PipelineConfig(
+                    target_column=target_col,
+                    task_type=task_type,
+                    preprocessing=PreprocessingConfig(
+                        fill_missing=preprocess_config["fill_missing"],
+                        encode_categorical=preprocess_config["encode_categorical"],
+                        scale=preprocess_config["scale"],
+                        handle_outliers=preprocess_config["handle_outliers"],
+                    ),
+                    models=[
+                        ModelConfig(
+                            name=m,
+                            tune_hyperparams=model_config["tune_hyperparams"],
+                            n_trials=model_config["n_trials"]
                         )
-                        st.dataframe(results_df, use_container_width=True)
+                        for m in model_config["selected_models"]
+                    ],
+                )
 
-                    if pipeline.best_model and pipeline.best_model.feature_importance is not None:
-                        st.subheader("📈 Важность признаков")
-                        importance = pipeline.get_feature_importance()
-                        if importance:
-                            imp_df = pd.DataFrame(
-                                {"Признак": list(importance.keys()), "Важность": list(importance.values())}
-                            ).sort_values("Важность", ascending=False)
-                            st.bar_chart(imp_df.set_index("Признак").head(15))
+                pipeline = AutoMLPipeline(config)
+                report = pipeline.run(st.session_state.uploaded_file_path)
 
-                    st.subheader("💾 Сохранение модели")
-                    if st.button("Сохранить лучшую модель"):
-                        save_path = f"best_model_{target_col}.joblib"
-                        pipeline.save_best_model(save_path)
-                        st.success(f"Модель сохранена: {save_path}")
+                set_report(report, pipeline)
 
-                except Exception as e:
-                    st.error(f"❌ Ошибка: {str(e)}")
-                finally:
-                    if os.path.exists(tmp_path):
-                        os.remove(tmp_path)
-else:
-    st.info("👆 Загрузите CSV файл для начала работы")
+                render_results(report, pipeline)
+                
+            except Exception as e:
+                st.error(f"❌ Ошибка: {str(e)}")
+                import traceback
+                st.code(traceback.format_exc())
 
-st.markdown("---")
-st.markdown(
-    """
-    **AutoML Expert System v1.0** | 
-    Поддерживаемые модели: CatBoost, LightGBM, XGBoost, Random Forest |
-    Готово для интеграции с AI-агентами 🤖
-    """
-)
+    st.markdown("---")
+    st.markdown(
+        """
+        **AutoML Expert System v1.0** | 
+        Поддерживаемые модели: CatBoost, LightGBM, XGBoost, Random Forest |
+        """
+    )
+
+
+if __name__ == "__main__":
+    main()
