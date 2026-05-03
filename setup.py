@@ -1,0 +1,24 @@
+from setuptools import setup, find_packages
+
+setup(
+    name="automl_core",
+    version="1.0.0",
+    packages=find_packages(),
+    install_requires=[
+        "streamlit>=1.28.0",
+        "pandas>=2.0.0",
+        "numpy>=1.24.0",
+        "scikit-learn>=1.3.0",
+        "xgboost>=2.0.0",
+        "lightgbm>=4.0.0",
+        "catboost>=1.2.0",
+        "optuna>=3.4.0",
+        "pydantic>=2.5.0",
+        "matplotlib>=3.7.0",
+        "seaborn>=0.13.0",
+        "plotly>=5.18.0",
+        "joblib>=1.3.0",
+        "pyyaml>=6.0",
+        "pytest>=7.0.0",
+    ],
+)

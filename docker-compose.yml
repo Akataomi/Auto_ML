@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  # 🤖 AutoML Приложение (Streamlit)
+  automl:
+    build: .
+    container_name: automl-app
+    ports:
+      - "8501:8501"
+    volumes:
+      - .:/app
+      - automl-data:/app/data
+      - automl-models:/app/models
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: streamlit run interface/app.py --server.address 0.0.0.0 --server.port 8501
+    restart: unless-stopped
+    networks:
+      - automl-network
+
+  # 📚 Документация (Nginx)
+  docs:
+    image: nginx:alpine
+    container_name: automl-docs
+    ports:
+      - "8000:80"
+    volumes:
+      - ./docs:/usr/share/nginx/html:ro
+    restart: unless-stopped
+    networks:
+      - automl-network
+    depends_on:
+      - automl
+
+volumes:
+  automl-data:
+  automl-models:
+
+networks:
+  automl-network:
+    driver: bridge

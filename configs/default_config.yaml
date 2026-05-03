@@ -1,0 +1,20 @@
+target_column: "target"
+task_type: "classification"
+preprocessing:
+  fill_missing: "median"
+  encode_categorical: "onehot"
+  scale: true
+  handle_outliers: false
+models:
+  - name: "catboost"
+    tune_hyperparams: true
+    n_trials: 50
+  - name: "lightgbm"
+    tune_hyperparams: true
+    n_trials: 50
+  - name: "random_forest"
+    tune_hyperparams: false
+    n_trials: 0
+metric: "accuracy"
+test_size: 0.2
+cv_folds: 5

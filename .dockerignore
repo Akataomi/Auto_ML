@@ -1,0 +1,11 @@
+.git
+.gitignore
+docs/*.html
+!docs/index.html
+__pycache__/
+*.pyc
+*.egg-info/
+venv/
+models/
+*.env
+catboost_info/
