@@ -6,6 +6,5 @@ __pycache__/
 *.pyc
 *.egg-info/
 venv/
-models/
 *.env
 catboost_info/
