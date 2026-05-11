@@ -33,7 +33,7 @@ def main():
 
     initialize_state()
 
-    st.title("🤖 AutoML Expert System")
+    st.title(" AutoML Expert System")
     st.markdown("---")
 
     if not render_file_upload():
@@ -51,7 +51,7 @@ def main():
     model_config = render_model_settings(task_type)
 
     st.markdown("---")
-    if st.button("🚀 Запустить AutoML", type="primary", use_container_width=True):
+    if st.button("🚀 Запустить AutoML", type="primary", width="stretch"):
         if not model_config["selected_models"]:
             st.error("❌ Выберите хотя бы одну модель!")
             return
@@ -97,7 +97,7 @@ def main():
     st.markdown(
         """
         **AutoML Expert System v1.0** | 
-        Поддерживаемые модели: CatBoost, LightGBM, XGBoost, Random Forest |
+        Поддерживаемые модели: CatBoost, LightGBM, XGBoost, Random Forest, LinearModels
         """
     )
 

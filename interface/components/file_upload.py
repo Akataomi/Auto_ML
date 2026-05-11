@@ -1,7 +1,7 @@
 """
-File Upload Component.
+File Upload Component
 
-Handles file upload, preview, and basic statistics.
+Handles file upload, preview, and basic statistics
 """
 
 import streamlit as st
@@ -70,7 +70,7 @@ def render_file_upload() -> bool:
             st.error("❌ Ошибка загрузки данных")
             return False
 
-        st.dataframe(df.head(), use_container_width=True)
+        st.dataframe(df.head(), width="stretch")
 
         col1, col2, col3 = st.columns(3)
         with col1:

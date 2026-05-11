@@ -1,3 +1,4 @@
+"""Pipeline module"""
 from .config import PipelineConfig, PreprocessingConfig, ModelConfig
 from .orchestrator import AutoMLPipeline
 

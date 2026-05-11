@@ -1,47 +1,25 @@
 """
-Pipeline Orchestration Module.
+Pipeline Orchestrator.
 
-Main orchestrator class that coordinates all stages of the AutoML pipeline.
+Coordinates all stages of the AutoML pipeline.
 """
 
 import pandas as pd
 from typing import Dict, Any, List, Optional
+from pathlib import Path
 
 from automl_core.data import DataLoader, DataAnalyzer
 from automl_core.preprocessing import DataCleaner, DataEncoder
-from automl_core.models import ModelRegistry, ModelTrainer
+from automl_core.models.registry import ModelRegistry
+from automl_core.training.trainer import ModelTrainer
+from automl_core.evaluation import MetricsCalculator
 from .config import PipelineConfig
 
 
 class AutoMLPipeline:
-    """
-    Main orchestrator for the AutoML pipeline.
-    
-    Coordinates all stages:
-        1. Data loading and validation
-        2. Exploratory data analysis (EDA)
-        3. Preprocessing (cleaning, encoding, scaling)
-        4. Model training with optional hyperparameter tuning
-        5. Evaluation and reporting
-    
-    Attributes:
-        config: Pipeline configuration.
-        report: Detailed execution report.
-        best_model: Best performing model.
-        
-    Example:
-        >>> config = PipelineConfig(target_column="target", task_type="classification", models=[])
-        >>> pipeline = AutoMLPipeline(config)
-        >>> report = pipeline.run("dataset.csv")
-    """
+    """Main orchestrator for the AutoML pipeline"""
 
     def __init__(self, config: PipelineConfig):
-        """
-        Initialize the AutoML pipeline.
-        
-        Args:
-            config: Configuration object defining pipeline behavior.
-        """
         self.config = config
         self.registry = ModelRegistry()
         self.report: Dict[str, Any] = {}
@@ -50,6 +28,7 @@ class AutoMLPipeline:
         self.best_score: float = 0
 
     def run(self, filepath: str) -> Dict[str, Any]:
+        """Execute the complete AutoML pipeline"""
         df = DataLoader.load(filepath)
         DataLoader.validate(df, self.config.target_column)
         self.report["data_info"] = DataAnalyzer.get_summary(df)
@@ -80,12 +59,14 @@ class AutoMLPipeline:
         results = []
         for model_cfg in self.config.models:
             try:
-                model = self.registry.get(model_cfg.name, self.config.task_type)
                 trainer = ModelTrainer(
-                    model, tune_hyperparams=model_cfg.tune_hyperparams, n_trials=model_cfg.n_trials
+                    model_name=model_cfg.name,
+                    task_type=self.config.task_type,
+                    tune=model_cfg.tune_hyperparams,
+                    n_trials=model_cfg.n_trials
                 )
-                trainer.fit(X, y, self.config.task_type)
-                metrics = trainer.evaluate(X, y, self.config.task_type)
+                trainer.fit(X, y)
+                metrics = trainer.evaluate(X, y)
 
                 result = {
                     "model": model_cfg.name,
@@ -112,22 +93,13 @@ class AutoMLPipeline:
         return self.report
 
     def save_best_model(self, filepath: str):
-        """
-        Save the best model to file.
-        
-        Args:
-            filepath: Path to save the model.
-        """
+        """Save the best model to file"""
         if self.best_model:
             self.best_model.save(filepath)
+            self.report["saved_model_path"] = filepath
 
     def get_feature_importance(self) -> Dict[str, float]:
-        """
-        Get feature importance from the best model.
-        
-        Returns:
-            Dict: Feature names mapped to importance scores.
-        """
+        """Get feature importance from best model"""
         if self.best_model and self.best_model.feature_importance is not None:
             return dict(zip(self.report["features"], self.best_model.feature_importance))
         return {}
