@@ -8,17 +8,20 @@ import pandas as pd
 from typing import Tuple
 
 
-def detect_task_type(df: pd.DataFrame, target_col: str) -> Tuple[str, str]:
+def detect_task_type(df: pd.DataFrame, target_col: str = None) -> Tuple[str, str]:
     """
     Heuristically detect task type based on target column.
     
     Args:
         df: DataFrame with data.
-        target_col: Name of target column.
+        target_col: Name of target column (optional for unsupervised).
         
     Returns:
         Tuple of (task_type, reason)
     """
+    if target_col is None:
+        return "clustering", "Нет целевой переменной - unsupervised обучение"
+    
     target_data = df[target_col]
     unique_count = target_data.nunique()
     total_count = len(target_data)
@@ -47,9 +50,23 @@ def format_metric(value) -> str:
 
 def get_model_emoji(task_type: str) -> str:
     """Get emoji for task type."""
-    return "📌" if task_type == "classification" else "📈"
+    mapping = {
+        "classification": "📌",
+        "regression": "📈",
+        "clustering": "🔵",
+        "anomaly_detection": "⚠️",
+        "neural_network": "🧠",
+        "deep_learning": "🧠",
+    }
+    return mapping.get(task_type, "🤖")
 
 
 def get_model_color(task_type: str) -> str:
     """Get color indicator for task type."""
-    return "🟢" if task_type == "classification" else "🔵"
+    mapping = {
+        "classification": "🟢",
+        "regression": "🔵",
+        "clustering": "🟣",
+        "anomaly_detection": "🔴",
+    }
+    return mapping.get(task_type, "⚪")

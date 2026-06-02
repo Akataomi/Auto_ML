@@ -27,13 +27,30 @@ class AutoMLPipeline:
         self.best_model: Optional[ModelTrainer] = None
         self.best_score: float = 0
 
-    def run(self, filepath: str) -> Dict[str, Any]:
-        """Execute the complete AutoML pipeline"""
-        df = DataLoader.load(filepath)
-        DataLoader.validate(df, self.config.target_column)
+    def run(self, filepath: Optional[str], df: Optional[pd.DataFrame] = None) -> Dict[str, Any]:
+        """Execute the complete AutoML pipeline
+        
+        Args:
+            filepath: Path to CSV file (for uploaded files)
+            df: DataFrame (for built-in datasets)
+        """
+        if df is not None:
+            pass
+        elif filepath is not None:
+            # Load from file
+            df = DataLoader.load(filepath)
+        else:
+            raise ValueError("Either filepath or df must be provided")
+        
+        is_unsupervised = self.config.task_type in ["clustering", "anomaly_detection"]
+        task_type_str = "unsupervised" if is_unsupervised else "supervised"
+        DataLoader.validate(df, self.config.target_column, task_type_str)
+        
         self.report["data_info"] = DataAnalyzer.get_summary(df)
         self.report["column_types"] = DataAnalyzer.get_column_types(df)
-        self.report["target_info"] = DataAnalyzer.get_target_info(df, self.config.target_column)
+        
+        if self.config.target_column:
+            self.report["target_info"] = DataAnalyzer.get_target_info(df, self.config.target_column)
 
         col_types = self.report["column_types"]
         cleaner = DataCleaner(
@@ -59,11 +76,16 @@ class AutoMLPipeline:
         results = []
         for model_cfg in self.config.models:
             try:
+                mlp_config = model_cfg.mlp_config if hasattr(model_cfg, 'mlp_config') else None
+                use_cv = model_cfg.use_cv if hasattr(model_cfg, 'use_cv') else True
+                
                 trainer = ModelTrainer(
                     model_name=model_cfg.name,
                     task_type=self.config.task_type,
                     tune=model_cfg.tune_hyperparams,
-                    n_trials=model_cfg.n_trials
+                    n_trials=model_cfg.n_trials,
+                    mlp_config=mlp_config,
+                    use_cv=use_cv
                 )
                 trainer.fit(X, y)
                 metrics = trainer.evaluate(X, y)
@@ -76,7 +98,14 @@ class AutoMLPipeline:
                 results.append(result)
                 self.models_trained.append({"name": model_cfg.name, "trainer": trainer})
 
-                score = metrics.get(self.config.metric, metrics.get("accuracy", metrics.get("r2", 0)))
+                if is_unsupervised:
+                    if self.config.task_type == "clustering":
+                        score = metrics.get("silhouette", 0)
+                    else:
+                        score = metrics.get("f1", metrics.get("anomaly_rate", 0))
+                else:
+                    score = metrics.get(self.config.metric, metrics.get("accuracy", metrics.get("r2", 0)))
+                
                 if score > self.best_score:
                     self.best_score = score
                     self.best_model = trainer

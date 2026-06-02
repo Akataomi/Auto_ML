@@ -6,15 +6,15 @@ Provides classes for loading and validating datasets from various file formats.
 
 import pandas as pd
 from pathlib import Path
-from typing import Union
+from typing import Union, Optional
 
 
 class DataLoader:
     """
     Loader for datasets with basic validation.
-    
+
     Supported formats: CSV, Parquet
-    
+
     Example:
         >>> df = DataLoader.load("dataset.csv")
         >>> DataLoader.validate(df, target_col="target")
@@ -24,13 +24,13 @@ class DataLoader:
     def load(filepath: Union[str, Path]) -> pd.DataFrame:
         """
         Load a dataset from file.
-        
+
         Args:
             filepath: Path to the data file (CSV or Parquet).
-            
+
         Returns:
             pd.DataFrame: Loaded dataset.
-            
+
         Raises:
             FileNotFoundError: If the file does not exist.
             ValueError: If the file format is unsupported or empty.
@@ -52,24 +52,30 @@ class DataLoader:
         return df
 
     @staticmethod
-    def validate(df: pd.DataFrame, target_col: str) -> bool:
+    def validate(df: pd.DataFrame, target_col: Optional[str] = None, task_type: str = "supervised") -> bool:
         """
         Validate dataset for ML pipeline compatibility.
-        
+
         Args:
             df: DataFrame to validate.
-            target_col: Name of the target variable column.
-            
+            target_col: Name of the target variable column (optional for unsupervised).
+            task_type: "supervised" or "unsupervised"
+
         Returns:
             bool: True if validation passes.
-            
+
         Raises:
             ValueError: If validation fails.
         """
-        if target_col not in df.columns:
-            raise ValueError(f"Целевая колонка '{target_col}' не найдена")
-        if df[target_col].isna().all():
-            raise ValueError("Целевая колонка содержит только NaN")
         if df.shape[0] < 10:
             raise ValueError("Слишком мало записей для обучения")
+
+        if task_type == "supervised":
+            if target_col is None:
+                raise ValueError("Целевая колонка обязательна для supervised обучения")
+            if target_col not in df.columns:
+                raise ValueError(f"Целевая колонка '{target_col}' не найдена")
+            if df[target_col].isna().all():
+                raise ValueError("Целевая колонка содержит только NaN")
+
         return True

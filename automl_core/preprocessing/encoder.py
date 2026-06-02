@@ -1,8 +1,7 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder, StandardScaler
-from sklearn.compose import ColumnTransformer
-from typing import Tuple, List
+from typing import Tuple, Optional
 
 
 class DataEncoder:
@@ -46,7 +45,6 @@ class DataEncoder:
         """Применение кодирования"""
         df_processed = df.copy()
 
-        # Кодирование категориальных
         if self.categorical_strategy == "label":
             for col, le in self.label_encoders.items():
                 df_processed[col] = le.transform(df_processed[col].astype(str).fillna("Unknown"))
@@ -64,20 +62,27 @@ class DataEncoder:
                 df_processed = df_processed.drop(columns=self.categorical_cols)
                 df_processed = pd.concat([df_processed, ohe_df], axis=1)
 
-        # Масштабирование числовых
         if self.scale and self.numeric_cols and self.scaler:
             df_processed[self.numeric_cols] = self.scaler.transform(df_processed[self.numeric_cols])
 
         return df_processed
 
     def fit_transform(
-        self, df: pd.DataFrame, target_col: str, categorical_cols: list, numeric_cols: list
-    ) -> Tuple[pd.DataFrame, pd.Series, list]:
+        self, df: pd.DataFrame, target_col: Optional[str] = None, categorical_cols: list = None, numeric_cols: list = None
+    ) -> Tuple[pd.DataFrame, Optional[pd.Series], list]:
         """Полная обработка"""
-        self.fit(df, target_col, categorical_cols, numeric_cols)
+        if categorical_cols is None or numeric_cols is None:
+            numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+            categorical_cols = df.select_dtypes(include=["object", "category", "bool"]).columns.tolist()
+        
+        self.fit(df, target_col if target_col else "", categorical_cols, numeric_cols)
         df_processed = self.transform(df)
 
-        X = df_processed.drop(columns=[target_col])
-        y = df[target_col]
+        if target_col and target_col in df_processed.columns:
+            X = df_processed.drop(columns=[target_col])
+            y = df[target_col]
+        else:
+            X = df_processed
+            y = None
 
         return X, y, list(X.columns)

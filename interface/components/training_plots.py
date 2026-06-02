@@ -36,16 +36,30 @@ def render_training_curves(history_df: pd.DataFrame, model_name: str, task_type:
     
     st.markdown(f" 📈 {model_name} - Кривые обучения")
     
-    metric_name = "Accuracy" if task_type == "classification" else "R² Score"
+    # Determine metric name based on task type
+    if task_type == "classification":
+        metric_name = "Accuracy"
+    elif task_type == "regression":
+        metric_name = "R² Score"
+    elif task_type == "clustering":
+        metric_name = "Silhouette"
+    elif task_type == "anomaly_detection":
+        metric_name = "F1 Score"
+    else:
+        metric_name = "Score"
     
-    has_loss = "val_loss" in history_df.columns or "train_loss" in history_df.columns
-    has_metric = "val_metric" in history_df.columns or "train_metric" in history_df.columns
+    has_train_loss = "train_loss" in history_df.columns and not history_df["train_loss"].isna().all()
+    has_val_loss = "val_loss" in history_df.columns and not history_df["val_loss"].isna().all()
+    has_loss = has_train_loss or has_val_loss
+    
+    has_train_metric = "train_metric" in history_df.columns and not history_df["train_metric"].isna().all()
+    has_val_metric = "val_metric" in history_df.columns and not history_df["val_metric"].isna().all()
+    has_metric = has_train_metric or has_val_metric
     
     if not has_loss and not has_metric:
-        st.warning("Нет данных для отображения")
+        st.warning("Нет данных для отображения (проверьте логи - возможно модель не сохранила историю)")
         return
-    
-    # Create figure with subplots (2 columns if we have both loss and metric)
+
     if has_loss and has_metric:
         fig, axes = plt.subplots(1, 2, figsize=(14, 5))
     else:
@@ -56,15 +70,13 @@ def render_training_curves(history_df: pd.DataFrame, model_name: str, task_type:
     
     epochs = history_df.get('epoch', range(len(history_df)))
     plot_idx = 0
-    
-    # Plot 1: Loss curves
+
     if has_loss:
         ax = axes[plot_idx]
         
-        if "train_loss" in history_df.columns and not history_df["train_loss"].isna().all():
+        if has_train_loss:
             ax.plot(epochs, history_df['train_loss'], 'b-', linewidth=2, label='Train Loss', marker='o', markersize=3, alpha=0.7)
-        
-        if "val_loss" in history_df.columns and not history_df["val_loss"].isna().all():
+        if has_val_loss:
             ax.plot(epochs, history_df['val_loss'], 'r-', linewidth=2, label='Val Loss', marker='s', markersize=3)
         
         ax.set_xlabel('Iteration / Epoch', fontsize=11)
@@ -74,15 +86,13 @@ def render_training_curves(history_df: pd.DataFrame, model_name: str, task_type:
         ax.grid(True, alpha=0.3)
         
         plot_idx += 1
-    
-    # Plot 2: Metric curves
+
     if has_metric:
         ax = axes[plot_idx]
         
-        if "train_metric" in history_df.columns and not history_df["train_metric"].isna().all():
+        if has_train_metric:
             ax.plot(epochs, history_df['train_metric'], 'g-', linewidth=2, label=f'Train {metric_name}', marker='o', markersize=3, alpha=0.7)
-        
-        if "val_metric" in history_df.columns and not history_df["val_metric"].isna().all():
+        if has_val_metric:
             ax.plot(epochs, history_df['val_metric'], 'm-', linewidth=2, label=f'Val {metric_name}', marker='s', markersize=3)
         
         ax.set_xlabel('Iteration / Epoch', fontsize=11)
@@ -90,9 +100,8 @@ def render_training_curves(history_df: pd.DataFrame, model_name: str, task_type:
         ax.set_title(f'{metric_name} Curves', fontsize=12, fontweight='bold')
         ax.legend(loc='best')
         ax.grid(True, alpha=0.3)
-        
-        # overfitting
-        if len(history_df) > 5 and "val_metric" in history_df.columns and "train_metric" in history_df.columns:
+
+        if len(history_df) > 5 and has_train_metric and has_val_metric:
             last_train = history_df["train_metric"].iloc[-1]
             last_val = history_df["val_metric"].iloc[-1]
             gap = last_train - last_val
@@ -120,8 +129,7 @@ def render_optimization_plot(optimization_df: pd.DataFrame, task_type: str) -> N
 
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
     fig.suptitle('Optuna Hyperparameter Optimization', fontsize=14, fontweight='bold', color='white')
-    
-    # Plot 1: Score progression
+
     ax = axes[0]
     trials = optimization_df['trial'].values
     scores = optimization_df[value_column].values
@@ -139,8 +147,7 @@ def render_optimization_plot(optimization_df: pd.DataFrame, task_type: str) -> N
     ax.set_title('Optimization Progress', fontsize=12, fontweight='bold')
     ax.legend(loc='best')
     ax.grid(True, alpha=0.3)
-    
-    # Plot 2: Score distribution
+
     ax = axes[1]
     ax.hist(scores, bins=20, alpha=0.7, color='green', edgecolor='white')
     best_val = scores.max() if task_type == "classification" else scores.min()
@@ -181,23 +188,47 @@ def render_model_comparison(results: List[Dict], task_type: str) -> None:
     
     st.subheader("🏆 Сравнение моделей")
     
-    metric_name = "accuracy" if task_type == "classification" else "r2"
-    metric_display = "Accuracy" if task_type == "classification" else "R² Score"
+    if task_type == "classification":
+        metric_name = "accuracy"
+        metric_display = "Accuracy"
+    elif task_type == "regression":
+        metric_name = "r2"
+        metric_display = "R² Score"
+    elif task_type == "clustering":
+        metric_name = "silhouette"
+        metric_display = "Silhouette Score"
+    elif task_type == "anomaly_detection":
+        metric_name = "f1"
+        metric_display = "F1 Score"
+    else:
+        metric_name = "accuracy"
+        metric_display = "Score"
+    
+    # Check if any model has CV results
+    has_cv = any(r.get("metrics", {}).get("cv_mean") is not None for r in valid_results)
     
     comparison_data = []
     for r in valid_results:
         metrics = r.get("metrics", {})
-        comparison_data.append({
+        row = {
             "Model": r.get("model"),
             metric_display: metrics.get(metric_name, 0),
-            "CV Mean": metrics.get("cv_mean", 0),
             "Tuned": "Yes" if r.get("tuned", False) else "No",
-        })
+        }
+        if has_cv:
+            row["CV Mean"] = metrics.get("cv_mean", 0)
+        comparison_data.append(row)
     
     comparison_df = pd.DataFrame(comparison_data)
-
-    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-    fig.suptitle('Model Comparison', fontsize=14, fontweight='bold', color='white')
+    
+    # Determine number of subplots based on CV availability
+    if has_cv:
+        fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+        fig.suptitle('Model Comparison', fontsize=14, fontweight='bold', color='white')
+    else:
+        fig, ax = plt.subplots(1, 1, figsize=(7, 5))
+        axes = [ax]
+        fig.suptitle('Model Comparison', fontsize=14, fontweight='bold', color='white')
     
     # Plot 1: Primary metric
     ax = axes[0]
@@ -215,18 +246,19 @@ def render_model_comparison(results: List[Dict], task_type: str) -> None:
         ax.text(bar.get_width() + 0.01, bar.get_y() + bar.get_height()/2, 
                f'{score:.3f}', va='center', fontsize=9, color='white')
     
-    # Plot 2: CV Mean
-    ax = axes[1]
-    cv_scores = comparison_df['CV Mean']
-    bars = ax.barh(models, cv_scores, color=colors, alpha=0.8)
-    ax.set_xlabel('CV Mean Score', fontsize=11)
-    ax.set_title('Cross-Validation Performance', fontsize=12, fontweight='bold')
-    ax.invert_yaxis()
-    ax.grid(True, alpha=0.3, axis='x')
+    # Plot 2: CV Mean (only if CV was used)
+    if has_cv:
+        ax = axes[1]
+        cv_scores = comparison_df['CV Mean']
+        bars = ax.barh(models, cv_scores, color=colors, alpha=0.8)
+        ax.set_xlabel('CV Mean Score', fontsize=11)
+        ax.set_title('Cross-Validation Performance', fontsize=12, fontweight='bold')
+        ax.invert_yaxis()
+        ax.grid(True, alpha=0.3, axis='x')
 
-    for bar, score in zip(bars, cv_scores):
-        ax.text(bar.get_width() + 0.01, bar.get_y() + bar.get_height()/2, 
-               f'{score:.3f}', va='center', fontsize=9, color='white')
+        for bar, score in zip(bars, cv_scores):
+            ax.text(bar.get_width() + 0.01, bar.get_y() + bar.get_height()/2, 
+                   f'{score:.3f}', va='center', fontsize=9, color='white')
     
     plt.tight_layout()
     st.pyplot(fig, bbox_inches='tight')
@@ -238,3 +270,88 @@ def render_model_comparison(results: List[Dict], task_type: str) -> None:
         st.markdown("🔴 **Красный** = С оптимизацией гиперпараметров")
     with col2:
         st.markdown("🔵 **Синий** = Без оптимизации")
+
+
+def render_clustering_visualization(X, labels, n_clusters: int = None) -> None:
+    """Simple fast clustering visualization - stub version"""
+    from sklearn.decomposition import PCA
+    
+    if labels is None or len(labels) == 0:
+        st.warning("⚠️ Нет данных для визуализации кластеров")
+        return
+    
+    st.markdown("### 📊 Визуализация кластеров (PCA)")
+    
+    # Fast sample: only 1000 points max
+    n_samples = len(labels)
+    max_samples = 1000
+    
+    if n_samples > max_samples:
+        np.random.seed(42)
+        sample_idx = np.random.choice(n_samples, max_samples, replace=False)
+        X_viz = X[sample_idx]
+        labels_viz = labels[sample_idx]
+    else:
+        X_viz = X
+        labels_viz = labels
+    
+    # Simple PCA
+    pca = PCA(n_components=2)
+    X_pca = pca.fit_transform(X_viz)
+    
+    # Simple scatter
+    fig, ax = plt.subplots(figsize=(8, 6))
+    scatter = ax.scatter(X_pca[:, 0], X_pca[:, 1], c=labels_viz, cmap='tab10', s=20, alpha=0.6)
+    ax.set_xlabel('PC1')
+    ax.set_ylabel('PC2')
+    ax.set_title(f'Clusters: {n_clusters or len(np.unique(labels_viz))}')
+    plt.colorbar(scatter, ax=ax, label='Cluster')
+    st.pyplot(fig, bbox_inches='tight')
+    plt.close(fig)
+    
+    # Simple stats
+    st.write("**Распределение:**")
+    cluster_counts = pd.Series(labels).value_counts().sort_index()
+    st.write(cluster_counts.to_frame())
+
+
+def render_anomaly_visualization(X, predictions) -> None:
+    """Simple fast anomaly visualization - stub version"""
+    from sklearn.decomposition import PCA
+    
+    if predictions is None or len(predictions) == 0:
+        st.warning("⚠️ Нет данных для визуализации аномалий")
+        return
+    
+    st.markdown("### 📊 Визуализация аномалий (PCA)")
+    
+    # Fast sample: only 1000 points max
+    n_samples = len(predictions)
+    max_samples = 1000
+    
+    if n_samples > max_samples:
+        np.random.seed(42)
+        sample_idx = np.random.choice(n_samples, max_samples, replace=False)
+        X_viz = X[sample_idx]
+        predictions_viz = predictions[sample_idx]
+    else:
+        X_viz = X
+        predictions_viz = predictions
+    
+    # Simple PCA
+    pca = PCA(n_components=2)
+    X_pca = pca.fit_transform(X_viz)
+    
+    # Simple scatter: red=anomaly, blue=normal
+    fig, ax = plt.subplots(figsize=(8, 6))
+    colors = ['red' if p == -1 else 'blue' for p in predictions_viz]
+    ax.scatter(X_pca[:, 0], X_pca[:, 1], c=colors, s=20, alpha=0.6)
+    ax.set_xlabel('PC1')
+    ax.set_ylabel('PC2')
+    ax.set_title(f'Anomalies: {np.sum(predictions == -1)} ({np.sum(predictions == -1)/len(predictions)*100:.1f}%)')
+    st.pyplot(fig, bbox_inches='tight')
+    plt.close(fig)
+    
+    # Simple stats
+    n_anomalies = np.sum(predictions == -1)
+    st.write(f"**Всего:** {len(predictions)} | **Аномалий:** {n_anomalies} | **%:** {n_anomalies/len(predictions)*100:.2f}%")

@@ -1,7 +1,6 @@
 version: '3.8'
 
 services:
-  # 🤖 AutoML Приложение (Streamlit)
   automl:
     build: .
     container_name: automl-app
@@ -18,7 +17,6 @@ services:
     networks:
       - automl-network
 
-  # 📚 Документация (Nginx)
   docs:
     image: nginx:alpine
     container_name: automl-docs

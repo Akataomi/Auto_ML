@@ -1,7 +1,5 @@
 import pandas as pd
-import numpy as np
 from sklearn.impute import SimpleImputer
-from typing import Tuple
 
 
 class DataCleaner:
@@ -41,7 +39,12 @@ class DataCleaner:
 
         for col in numeric_cols:
             if col in self.imputers:
-                df_clean[[col]] = self.imputers[col].transform(df_clean[[col]])
+                imputed = self.imputers[col].transform(df_clean[[col]])
+
+                if imputed.shape[1] == 0 or len(imputed) == 0:
+                    df_clean[col] = 0
+                else:
+                    df_clean[col] = imputed.flatten()
 
             if self.outlier_method == "iqr" and col in self.outlier_bounds:
                 lower, upper = self.outlier_bounds[col]

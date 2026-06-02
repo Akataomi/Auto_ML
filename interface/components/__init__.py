@@ -5,6 +5,7 @@ from .preprocessing_settings import render_preprocessing_settings
 from .model_settings import render_model_settings
 from .results_display import render_results
 from .training_plots import render_optimization_plot, render_model_comparison
+from .dataset_selector import render_dataset_selector
 
 __all__ = [
     "render_file_upload",
@@ -14,4 +15,5 @@ __all__ = [
     "render_results",
     "render_optimization_plot",
     "render_model_comparison",
+    "render_dataset_selector",
 ]

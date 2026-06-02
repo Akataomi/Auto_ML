@@ -4,6 +4,7 @@ import optuna
 import lightgbm as lgb
 import xgboost as xgb
 import pandas as pd
+import numpy as np
 
 from optuna.samplers import TPESampler
 from optuna.pruners import MedianPruner
@@ -11,6 +12,11 @@ from sklearn.model_selection import cross_val_score
 from typing import Any, Dict, List, Optional
 from xgboost import XGBClassifier, XGBRegressor
 from catboost import CatBoostClassifier, CatBoostRegressor
+from sklearn.cluster import KMeans, DBSCAN, AgglomerativeClustering
+from sklearn.ensemble import IsolationForest
+from sklearn.neighbors import LocalOutlierFactor
+from sklearn.svm import OneClassSVM
+from sklearn.metrics import silhouette_score, f1_score
 
 
 class OptunaTuner:
@@ -37,6 +43,11 @@ class OptunaTuner:
 
             model = self.registry.create_model(model_name, task_type, **params)
 
+            if task_type == "clustering":
+                return self._clustering_objective(trial, model, X)
+            elif task_type == "anomaly_detection":
+                return self._anomaly_objective(trial, model, X, y)
+
             if model_name == "xgboost":
                 return self._xgboost_objective(trial, model, X, y, cv)
             elif model_name == "lightgbm":
@@ -56,6 +67,49 @@ class OptunaTuner:
                 return score
         
         return objective
+    
+    def _clustering_objective(self, trial: optuna.Trial, model, X):
+        """Objective for clustering - maximize silhouette score"""
+        
+        model.fit(X)
+        labels = model.labels_
+
+        n_clusters = len(np.unique(labels))
+        if n_clusters < 2 or n_clusters >= len(X):
+            return 0.0
+        
+        score = silhouette_score(X, labels)
+        trial.report(score, step=0)
+        if trial.should_prune():
+            raise optuna.TrialPruned()
+        
+        return score
+    
+    def _anomaly_objective(self, trial: optuna.Trial, model, X, y=None):
+        """Objective for anomaly detection"""
+        
+        model.fit(X)
+        predictions = model.predict(X)
+
+        if y is not None:
+            y_binary = (y != y.mode().iloc[0]).astype(int) if hasattr(y, 'mode') else (y == -1).astype(int)
+            pred_binary = (predictions == -1).astype(int)
+            score = f1_score(y_binary, pred_binary, zero_division=0)
+        else:
+            anomaly_mask = predictions == -1
+            if anomaly_mask.sum() > 1 and (~anomaly_mask).sum() > 1:
+                try:
+                    score = silhouette_score(X, predictions)
+                except:
+                    score = 0.5
+            else:
+                score = 0.5
+        
+        trial.report(score, step=0)
+        if trial.should_prune():
+            raise optuna.TrialPruned()
+        
+        return score
     
     def _xgboost_objective(self, trial: optuna.Trial, model, X, y, cv: int):
         scoring = "accuracy" if isinstance(model, XGBClassifier) else "neg_mean_squared_error"
@@ -170,6 +224,92 @@ class OptunaTuner:
                 "penalty": trial.suggest_categorical("penalty", ["l2", "l1", "elasticnet", None]),
                 "solver": trial.suggest_categorical("solver", ["liblinear", "saga"]),
             }
+
+        elif model_name == "kmeans":
+            return {
+                "n_clusters": trial.suggest_int("n_clusters", 2, 10),
+                "init": trial.suggest_categorical("init", ["k-means++", "random"]),
+                "max_iter": trial.suggest_int("max_iter", 100, 500),
+            }
+        
+        elif model_name == "dbscan":
+            return {
+                "eps": trial.suggest_float("eps", 0.1, 10.0, log=True),
+                "min_samples": trial.suggest_int("min_samples", 2, 20),
+            }
+        
+        elif model_name == "agglomerative":
+            return {
+                "n_clusters": trial.suggest_int("n_clusters", 2, 10),
+                "linkage": trial.suggest_categorical("linkage", ["ward", "complete", "average", "single"]),
+            }
+
+        elif model_name == "isolation_forest":
+            return {
+                "n_estimators": trial.suggest_int("n_estimators", 50, 200),
+                "contamination": trial.suggest_float("contamination", 0.01, 0.2),
+                "max_samples": trial.suggest_categorical("max_samples", ["auto", 256, 512, 1024]),
+            }
+        
+        elif model_name == "local_outlier_factor":
+            return {
+                "n_neighbors": trial.suggest_int("n_neighbors", 5, 50),
+                "contamination": trial.suggest_float("contamination", 0.01, 0.2),
+                "metric": trial.suggest_categorical("metric", ["euclidean", "manhattan"]),
+            }
+        
+        elif model_name == "one_class_svm":
+            return {
+                "nu": trial.suggest_float("nu", 0.01, 0.5),
+                "kernel": trial.suggest_categorical("kernel", ["rbf", "linear", "poly"]),
+                "gamma": trial.suggest_float("gamma", 0.001, 1.0, log=True),
+            }
+
+        elif model_name == "mlp_classifier":
+            return {
+                "hidden_layer_sizes": trial.suggest_categorical(
+                    "hidden_layer_sizes",
+                    [(50,), (100,), (50, 50), (100, 50), (100, 100), (200, 100, 50)]
+                ),
+                "activation": trial.suggest_categorical("activation", ["relu", "tanh", "logistic"]),
+                "solver": trial.suggest_categorical("solver", ["adam", "sgd", "lbfgs"]),
+                "alpha": trial.suggest_float("alpha", 1e-5, 1e-1, log=True),
+                "learning_rate_init": trial.suggest_float("learning_rate_init", 1e-4, 1e-1, log=True),
+                "batch_size": trial.suggest_categorical("batch_size", [16, 32, 64, 128, 256]),
+                "max_iter": trial.suggest_int("max_iter", 100, 500, step=50),
+                "early_stopping": trial.suggest_categorical("early_stopping", [True, False]),
+            }
+        
+        elif model_name == "mlp_regressor":
+            return {
+                "hidden_layer_sizes": trial.suggest_categorical(
+                    "hidden_layer_sizes",
+                    [(50,), (100,), (50, 50), (100, 50), (100, 100), (200, 100, 50)]
+                ),
+                "activation": trial.suggest_categorical("activation", ["relu", "tanh", "logistic"]),
+                "solver": trial.suggest_categorical("solver", ["adam", "sgd", "lbfgs"]),
+                "alpha": trial.suggest_float("alpha", 1e-5, 1e-1, log=True),
+                "learning_rate_init": trial.suggest_float("learning_rate_init", 1e-4, 1e-1, log=True),
+                "batch_size": trial.suggest_categorical("batch_size", [16, 32, 64, 128, 256]),
+                "max_iter": trial.suggest_int("max_iter", 100, 500, step=50),
+                "early_stopping": trial.suggest_categorical("early_stopping", [True, False]),
+            }
+
+        elif model_name in ["deep_mlp_classifier", "deep_mlp_regressor"]:
+            return {
+                "hidden_layers": trial.suggest_categorical(
+                    "hidden_layers",
+                    [[64], [128], [64, 32], [128, 64], [256, 128], [128, 64, 32], [256, 128, 64]]
+                ),
+                "activation": trial.suggest_categorical("activation", ["relu", "leaky_relu", "tanh", "gelu"]),
+                "use_batchnorm": trial.suggest_categorical("use_batchnorm", [True, False]),
+                "dropout_rate": trial.suggest_float("dropout_rate", 0.0, 0.5, step=0.1),
+                "optimizer": trial.suggest_categorical("optimizer", ["adam", "sgd", "rmsprop", "adamw"]),
+                "learning_rate": trial.suggest_float("learning_rate", 1e-4, 1e-2, log=True),
+                "batch_size": trial.suggest_categorical("batch_size", [32, 64, 128, 256]),
+                "epochs": trial.suggest_int("epochs", 50, 150, step=25),
+                "early_stopping_patience": trial.suggest_int("early_stopping_patience", 10, 30, step=5),
+            }
         
         else:
             return {}
@@ -224,7 +364,7 @@ class OptunaTuner:
             for t in self.study.trials
         ]
         
-        print(f" [Optuna] Optimization complete!", file=__import__('sys').stderr)
+        print(" [Optuna] Optimization complete!", file=__import__('sys').stderr)
         print(f" [Optuna] Best score: {self.study.best_value:.4f}", file=__import__('sys').stderr)
         print(f" [Optuna] Best params: {self.study.best_params}", file=__import__('sys').stderr)
         
