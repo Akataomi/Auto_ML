@@ -49,7 +49,7 @@ def main():
         if dataset_choice:
             try:
                 df = load_dataset(dataset_choice)
-                st.session_state.uploaded_file_path = None  # No file path for built-in
+                st.session_state.uploaded_file_path = None
                 st.session_state.df_preview = df
                 st.success(f"✅ Загружен датасет: {df.shape[0]} строк, {df.shape[1]} признаков")
 
@@ -84,11 +84,9 @@ def main():
         with st.spinner("⏳ Обучение моделей..."):
             try:
                 target_col = st.session_state.get("target_col")
-                
-                # Создаем конфигурацию моделей с поддержкой mlp_config и use_cv
+
                 models_config = []
                 for m in model_config["selected_models"]:
-                    # Передаем mlp_config только для deep_mlp моделей
                     if m in ["deep_mlp_classifier", "deep_mlp_regressor"] and model_config.get("mlp_config"):
                         models_config.append(
                             ModelConfig(
@@ -121,8 +119,9 @@ def main():
                     models=models_config,
                 )
 
-                pipeline = AutoMLPipeline(config)
-                # Pass df directly for built-in datasets, or filepath for uploaded files
+                use_mlflow = model_config.get("use_mlflow", False)
+                use_mlflow_docker = model_config.get("use_mlflow_docker", False)
+                pipeline = AutoMLPipeline(config, use_mlflow=use_mlflow, use_mlflow_docker=use_mlflow_docker)
                 report = pipeline.run(
                     filepath=st.session_state.uploaded_file_path,
                     df=st.session_state.get("df_preview")
@@ -132,8 +131,26 @@ def main():
 
                 render_results(report, pipeline)
                 
+                if use_mlflow:
+                    st.info("💡 Эксперимент сохранен в MLFlow!")
+                    
+                    if use_mlflow_docker:
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            if st.button("🔗 Открыть MLFlow UI"):
+                                import webbrowser
+                                webbrowser.open("http://localhost:5050")
+                        with col2:
+                            st.markdown("**MLFlow сервер:** http://localhost:5050")
+                    else:
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.markdown("**Режим:** Local (файлы)")
+                        with col2:
+                            st.markdown("**Путь:** `./mlruns`")
+                
             except Exception as e:
-                st.error(f"❌ Ошибка: {str(e)}")
+                st.error(f"Ошибка: {str(e)}")
                 import traceback
                 st.code(traceback.format_exc())
 

@@ -78,6 +78,27 @@ def render_model_settings(task_type: str) -> Dict:
         key="cv_checkbox"
     )
 
+    st.sidebar.subheader("🔗 MLFlow Integration")
+    use_mlflow = st.sidebar.checkbox(
+        "📊 Логировать эксперименты в MLFlow", 
+        value=False, 
+        key="mlflow_checkbox",
+        help="Все эксперименты будут сохранены в MLFlow"
+    )
+
+    use_mlflow_docker = False
+    if use_mlflow:
+        st.sidebar.info("""
+        **MLFlow режим:**
+        - Метрики и параметры → PostgreSQL
+        - Модели и графики → Docker volume
+        - MLFlow UI: http://localhost:5050
+        
+        **Требования:**
+        - Запустить: `docker compose up -d`
+        """)
+        use_mlflow_docker = True
+
     mlp_config = None
     if task_type in ["classification", "regression"]:
         mlp_model_name = "deep_mlp_classifier" if task_type == "classification" else "deep_mlp_regressor"
@@ -90,4 +111,5 @@ def render_model_settings(task_type: str) -> Dict:
         "n_trials": n_trials,
         "mlp_config": mlp_config,
         "use_cv": use_cv,
+        "use_mlflow": use_mlflow,
     }

@@ -12,10 +12,14 @@ services:
       - automl-models:/app/models
     environment:
       - PYTHONUNBUFFERED=1
+      - MLFLOW_TRACKING_URI=http://mlflow-service:5000
     command: streamlit run interface/app.py --server.address 0.0.0.0 --server.port 8501
     restart: unless-stopped
     networks:
       - automl-network
+    depends_on:
+      mlflow-service:
+        condition: service_healthy
 
   docs:
     image: nginx:alpine
@@ -30,9 +34,66 @@ services:
     depends_on:
       - automl
 
+  postgres:
+    container_name: automl-postgres
+    image: postgres:16.2
+    networks:
+      - automl-network
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mlflow-service:
+    container_name: automl-mlflow
+    image: ${MLFLOW_VERSION}
+    networks:
+      - automl-network
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    command:
+      - bash
+      - -c
+      - |
+        pip install psycopg2-binary --quiet
+        mlflow server --host 0.0.0.0 --port 5000 \
+            --backend-store-uri postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB} \
+            --default-artifact-root /mlflow/artifacts \
+            --serve-artifacts \
+            --allowed-hosts "*" \
+            --cors-allowed-origins "*"
+    expose:
+      - "5000"
+    ports:
+      - "${MLFLOW_PORT}:5000"
+    volumes:
+      - ./mlflow-data:/mlflow
+      - mlflow-artifacts:/mlflow/artifacts
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:5000/health')\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 120s
+
 volumes:
   automl-data:
   automl-models:
+  postgres_data:
+  mlflow-artifacts:
 
 networks:
   automl-network:

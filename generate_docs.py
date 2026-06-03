@@ -555,6 +555,387 @@ def generate_module_html(module_name, module, output_dir):
     print(f"✅ {module_name} → {output_path.name}")
     return output_path.name
 
+def generate_user_guides_html(output_dir):
+    """Генерация страниц с руководствами пользователя"""
+    
+    # Getting Started Guide
+    getting_started = f"""<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Быстрый старт - AutoML Documentation</title>
+    <style>{CSS_STYLES}</style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-button">← На главную</a>
+        
+        <header>
+            <h1>🚀 Быстрый старт</h1>
+            <p class="subtitle">Запуск AutoML проекта за 5 минут</p>
+        </header>
+        
+        <nav>
+            <a href="#requirements">Требования</a>
+            <a href="#installation">Установка</a>
+            <a href="#docker">Docker запуск</a>
+            <a href="#local">Локальный запуск</a>
+            <a href="#troubleshooting">Troubleshooting</a>
+        </nav>
+        
+        <section class="section" id="requirements">
+            <h2>📋 Требования</h2>
+            <ul>
+                <li><strong>Python:</strong> 3.10+</li>
+                <li><strong>Docker Desktop:</strong> для контейнеризации</li>
+                <li><strong>RAM:</strong> минимум 8GB (рекомендуется 16GB)</li>
+                <li><strong>OS:</strong> macOS, Linux, Windows (WSL2)</li>
+            </ul>
+        </section>
+        
+        <section class="section" id="installation">
+            <h2>📦 Установка</h2>
+            <h3>1. Клонирование репозитория</h3>
+            <pre><code>git clone &lt;repository-url&gt;
+cd Auto_ML</code></pre>
+            
+            <h3>2. Создание виртуального окружения</h3>
+            <pre><code>python -m venv .venv
+source .venv/bin/activate  # macOS/Linux
+.venv\\Scripts\\activate   # Windows</code></pre>
+            
+            <h3>3. Установка зависимостей</h3>
+            <pre><code>pip install -r requirements.txt
+pip install -e .</code></pre>
+        </section>
+        
+        <section class="section" id="docker">
+            <h2>🐳 Запуск через Docker (Рекомендуется)</h2>
+            
+            <h3>1. Запуск всех сервисов</h3>
+            <pre><code>docker compose up -d --build</code></pre>
+            
+            <h3>2. Проверка статуса</h3>
+            <pre><code>docker compose ps</code></pre>
+            
+            <h3>3. Доступ к сервисам</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Сервис</th>
+                        <th>URL</th>
+                        <th>Описание</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>AutoML UI</strong></td>
+                        <td><a href="http://localhost:8501">http://localhost:8501</a></td>
+                        <td>Веб-интерфейс для обучения моделей</td>
+                    </tr>
+                    <tr>
+                        <td><strong>MLFlow UI</strong></td>
+                        <td><a href="http://localhost:5050">http://localhost:5050</a></td>
+                        <td>Мониторинг экспериментов</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Документация</strong></td>
+                        <td><a href="http://localhost:8000">http://localhost:8000</a></td>
+                        <td>API документация</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <h3>4. Остановка сервисов</h3>
+            <pre><code>docker compose down</code></pre>
+        </section>
+        
+        <section class="section" id="local">
+            <h2>💻 Локальный запуск (без Docker)</h2>
+            
+            <h3>1. Запуск AutoML UI</h3>
+            <pre><code>streamlit run interface/app.py</code></pre>
+            
+            <h3>2. Запуск MLFlow (опционально)</h3>
+            <pre><code>mlflow ui --backend-store-uri sqlite:///mlflow.db</code></pre>
+        </section>
+        
+        <section class="section" id="troubleshooting">
+            <h2>🔧 Troubleshooting</h2>
+            
+            <h3>Ошибка: "Address already in use"</h3>
+            <p>Освободите порты 8501, 5050, 8000 или измените их в docker-compose.yml</p>
+            
+            <h3>MLFlow не запускается</h3>
+            <pre><code>docker compose logs mlflow-service</code></pre>
+            
+            <h3>Просмотр логов</h3>
+            <pre><code>docker compose logs -f automl
+docker compose logs -f mlflow-service</code></pre>
+        </section>
+        
+        <footer>
+            <p>AutoML Framework Documentation | Быстрый старт</p>
+        </footer>
+    </div>
+</body>
+</html>
+"""
+    
+    # MLFlow Integration Guide
+    mlflow_guide = f"""<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MLFlow Integration - AutoML Documentation</title>
+    <style>{CSS_STYLES}</style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-button">← На главную</a>
+        
+        <header>
+            <h1>📊 MLFlow Integration</h1>
+            <p class="subtitle">Полное руководство по логированию экспериментов</p>
+        </header>
+        
+        <nav>
+            <a href="#overview">Обзор</a>
+            <a href="#architecture">Архитектура</a>
+            <a href="#what-logged">Что логируется</a>
+            <a href="#viewing">Просмотр</a>
+            <a href="#examples">Примеры</a>
+        </nav>
+        
+        <section class="section" id="overview">
+            <h2>📋 Обзор</h2>
+            <p>MLFlow автоматически логирует все эксперименты AutoML:</p>
+            <ul>
+                <li>✅ Параметры предобработки данных</li>
+                <li>✅ Метрики всех моделей</li>
+                <li>✅ Сами модели (в нативном формате)</li>
+                <li>✅ Важность признаков</li>
+                <li>✅ Графики обучения</li>
+                <li>✅ Матрицы ошибок (для классификации)</li>
+            </ul>
+        </section>
+        
+        <section class="section" id="architecture">
+            <h2>🏗️ Архитектура хранения</h2>
+            
+            <h3>PostgreSQL → Метаданные</h3>
+            <ul>
+                <li>Названия экспериментов и запусков</li>
+                <li>Параметры (params)</li>
+                <li>Метрики (metrics)</li>
+                <li>Теги и временные метки</li>
+            </ul>
+            
+            <h3>Docker Volume → Артефакты</h3>
+            <ul>
+                <li>Модели (catboost, xgboost, lightgbm, pytorch)</li>
+                <li>Графики обучения (PNG)</li>
+                <li>Матрицы ошибок (PNG)</li>
+                <li>CSV с важностью признаков</li>
+            </ul>
+            
+            <h3>Структура артефактов</h3>
+            <pre><code>/mlflow/artifacts/
+├── models/
+│   ├── catboost/
+│   ├── xgboost/
+│   ├── lightgbm/
+│   └── deep_mlp/
+├── feature_importance/
+│   ├── catboost/feature_importance.csv
+│   ├── xgboost/feature_importance.csv
+│   └── lightgbm/feature_importance.csv
+├── training_curves/
+│   └── deep_mlp.png
+└── confusion_matrices/
+    └── catboost.png</code></pre>
+        </section>
+        
+        <section class="section" id="what-logged">
+            <h2>📊 Что логируется в MLFlow</h2>
+            
+            <h3>1. Параметры эксперимента</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Параметр</th>
+                        <th>Описание</th>
+                        <th>Пример</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>task_type</code></td>
+                        <td>Тип задачи</td>
+                        <td>regression, classification</td>
+                    </tr>
+                    <tr>
+                        <td><code>metric</code></td>
+                        <td>Целевая метрика</td>
+                        <td>accuracy, rmse</td>
+                    </tr>
+                    <tr>
+                        <td><code>target_column</code></td>
+                        <td>Имя целевой колонки</td>
+                        <td>target, price</td>
+                    </tr>
+                    <tr>
+                        <td><code>num_models</code></td>
+                        <td>Количество моделей</td>
+                        <td>4</td>
+                    </tr>
+                    <tr>
+                        <td><code>fill_strategy</code></td>
+                        <td>Стратегия заполнения пропусков</td>
+                        <td>median, mean</td>
+                    </tr>
+                    <tr>
+                        <td><code>encode_strategy</code></td>
+                        <td>Стратегия кодирования</td>
+                        <td>onehot, label</td>
+                    </tr>
+                    <tr>
+                        <td><code>scale</code></td>
+                        <td>Масштабирование</td>
+                        <td>True, False</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <h3>2. Метрики моделей (с префиксами)</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Тип задачи</th>
+                        <th>Метрики</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Регрессия</strong></td>
+                        <td>
+                            <code>catboost_rmse</code>, <code>xgboost_rmse</code>, <code>lightgbm_rmse</code>, <code>deep_mlp_rmse</code><br>
+                            <code>catboost_mse</code>, <code>xgboost_mse</code>, <code>lightgbm_mse</code>, <code>deep_mlp_mse</code><br>
+                            <code>catboost_mae</code>, <code>xgboost_mae</code>, <code>lightgbm_mae</code>, <code>deep_mlp_mae</code><br>
+                            <code>catboost_r2</code>, <code>xgboost_r2</code>, <code>lightgbm_r2</code>, <code>deep_mlp_r2</code>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><strong>Классификация</strong></td>
+                        <td>
+                            <code>catboost_accuracy</code>, <code>xgboost_accuracy</code>, <code>lightgbm_accuracy</code>, <code>deep_mlp_accuracy</code><br>
+                            <code>catboost_precision</code>, <code>xgboost_precision</code>, <code>lightgbm_precision</code>, <code>deep_mlp_precision</code><br>
+                            <code>catboost_recall</code>, <code>xgboost_recall</code>, <code>lightgbm_recall</code>, <code>deep_mlp_recall</code><br>
+                            <code>catboost_f1</code>, <code>xgboost_f1</code>, <code>lightgbm_f1</code>, <code>deep_mlp_f1</code>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <h3>3. Важность признаков</h3>
+            <p>Для каждой модели сохраняются:</p>
+            <ul>
+                <li><strong>Метрики:</strong> <code>catboost_importance_bmi</code>, <code>xgboost_importance_s5</code>, etc. (топ-20)</li>
+                <li><strong>Артефакт:</strong> <code>feature_importance/catboost/feature_importance.csv</code>, <code>feature_importance/xgboost/feature_importance.csv</code></li>
+            </ul>
+            
+            <h3>4. Графики обучения</h3>
+            <p>Для итеративных моделей (Deep MLP, CatBoost, XGBoost, LightGBM):</p>
+            <ul>
+                <li><strong>Артефакт:</strong> <code>training_curves/deep_mlp.png</code>, <code>training_curves/catboost.png</code></li>
+                <li>Два графика: loss curves + metric curves</li>
+            </ul>
+            
+            <h3>5. Матрицы ошибок</h3>
+            <p>Только для классификации:</p>
+            <ul>
+                <li><strong>Артефакт:</strong> <code>confusion_matrices/catboost.png</code>, <code>confusion_matrices/xgboost.png</code></li>
+            </ul>
+        </section>
+        
+        <section class="section" id="viewing">
+            <h2>👁️ Просмотр результатов</h2>
+            
+            <h3>Через MLFlow UI</h3>
+            <ol>
+                <li>Откройте <a href="http://localhost:5050">http://localhost:5050</a></li>
+                <li>Кликните на эксперимент (например, <code>AutoML_regression</code>)</li>
+                <li>Кликните на запуск (run)</li>
+                <li>Вкладка <strong>Parameters</strong> — параметры предобработки</li>
+                <li>Вкладка <strong>Metrics</strong> — метрики всех моделей</li>
+                <li>Вкладка <strong>Artifacts</strong> — модели, графики, CSV</li>
+            </ol>
+            
+            <h3>Сравнение запусков</h3>
+            <ol>
+                <li>В списке экспериментов выберите несколько запусков</li>
+                <li>Нажмите <strong>Compare</strong></li>
+                <li>Сравните метрики и параметры</li>
+            </ol>
+        </section>
+        
+        <section class="section" id="examples">
+            <h2>💡 Примеры использования</h2>
+            
+            <h3>Пример 1: Базовый запуск</h3>
+            <pre><code># В AutoML UI:
+1. Выберите датасет (Diabetes)
+2. Тип задачи: Regression
+3. Модели: CatBoost, XGBoost, LightGBM, Deep MLP
+4. Нажмите "Запустить обучение"
+
+# В MLFlow UI:
+- Откройте http://localhost:5050
+- Найдите эксперимент AutoML_regression
+- Кликните на последний запуск
+- Проверьте метрики и артефакты</code></pre>
+            
+            <h3>Пример 2: Сравнение экспериментов</h3>
+            <pre><code># Запустите 2 эксперимента с разными параметрами:
+Эксперимент 1: scale=True, encode_strategy=onehot
+Эксперимент 2: scale=False, encode_strategy=label
+
+# В MLFlow UI:
+- Выберите оба запуска
+- Нажмите Compare
+- Сравните r2, rmse, mae метрики</code></pre>
+            
+            <h3>Пример 3: Загрузка модели</h3>
+            <pre><code>import mlflow
+
+# Загрузка модели из MLFlow
+model_uri = "runs:/&lt;run_id&gt;/catboost"
+model = mlflow.pyfunc.load_model(model_uri)
+
+# Предсказание
+predictions = model.predict(test_data)</code></pre>
+        </section>
+        
+        <footer>
+            <p>AutoML Framework Documentation | MLFlow Integration</p>
+        </footer>
+    </div>
+</body>
+</html>
+"""
+    
+    # Сохранение файлов
+    with open(output_dir / "getting_started.html", 'w', encoding='utf-8') as f:
+        f.write(getting_started)
+    print("✅ getting_started.html")
+    
+    with open(output_dir / "mlflow_integration.html", 'w', encoding='utf-8') as f:
+        f.write(mlflow_guide)
+    print("✅ mlflow_integration.html")
+
+
 def generate_index_html(modules_by_category, output_dir):
     html = f"""<!DOCTYPE html>
 <html lang="ru">
@@ -573,6 +954,8 @@ def generate_index_html(modules_by_category, output_dir):
         </header>
         
         <nav>
+            <a href="getting_started.html">🚀 Быстрый старт</a>
+            <a href="mlflow_integration.html">📊 MLFlow</a>
             <a href="#core">🎯 Ядро</a>
             <a href="#models">🧠 Модели</a>
             <a href="#training">📈 Обучение</a>
@@ -751,10 +1134,17 @@ def main():
     print("=" * 60)
     generate_index_html(modules_by_category, output_dir)
     
+    print("\n📚 Генерация руководств пользователя...")
+    print("=" * 60)
+    generate_user_guides_html(output_dir)
+    
     print("\n" + "=" * 60)
     print("✅ Документация сгенерирована!")
     print(f"📁 Папка: {output_dir.absolute()}")
     print("🌐 Открой: docs/index.html")
+    print("\n📖 Руководства:")
+    print("   - docs/getting_started.html (Быстрый старт)")
+    print("   - docs/mlflow_integration.html (MLFlow)")
     print("=" * 60)
 
 if __name__ == "__main__":

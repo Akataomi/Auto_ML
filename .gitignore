@@ -4,7 +4,9 @@ __pycache__/
 *.pyc
 *.egg-info/
 venv/
-*.env
 *.venv
 mlruns/
 catboost_info/
+mlflow-data/
+.env
+data/mlflow_data/
