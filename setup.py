@@ -4,6 +4,7 @@ setup(
     name="automl_core",
     version="1.0.0",
     packages=find_packages(),
+    python_requires=">=3.9",
     install_requires=[
         "streamlit>=1.28.0",
         "pandas>=2.0.0",
@@ -19,6 +20,13 @@ setup(
         "plotly>=5.18.0",
         "joblib>=1.3.0",
         "pyyaml>=6.0",
-        "pytest>=7.0.0",
+        "torch>=2.0.0",
+        "torchvision>=0.15.0",
     ],
+    extras_require={
+        "dev": [
+            "pytest>=7.0.0",
+            "mlflow>=2.10.0",
+        ],
+    },
 )
