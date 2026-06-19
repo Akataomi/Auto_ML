@@ -4,10 +4,14 @@ Model Settings Component.
 Handles model selection and hyperparameter tuning configuration.
 """
 
+import os
 import streamlit as st
 from typing import List, Dict
 from automl_core.models.registry import ModelRegistry
 from interface.components.deep_mlp_settings import render_deep_mlp_settings
+
+# Определение окружения: Cloud или Local
+IS_CLOUD = os.getenv("STREAMLIT_SERVER_PORT") is not None
 
 
 def render_model_settings(task_type: str) -> Dict:
@@ -78,26 +82,33 @@ def render_model_settings(task_type: str) -> Dict:
         key="cv_checkbox"
     )
 
-    st.sidebar.subheader("🔗 MLFlow Integration")
-    use_mlflow = st.sidebar.checkbox(
-        "📊 Логировать эксперименты в MLFlow", 
-        value=False, 
-        key="mlflow_checkbox",
-        help="Все эксперименты будут сохранены в MLFlow"
-    )
-
+    # MLFlow Integration (только для Local/Docker режима)
+    use_mlflow = False
     use_mlflow_docker = False
-    if use_mlflow:
-        st.sidebar.info("""
-        **MLFlow режим:**
-        - Метрики и параметры → PostgreSQL
-        - Модели и графики → Docker volume
-        - MLFlow UI: http://localhost:5050
-        
-        **Требования:**
-        - Запустить: `docker compose up -d`
-        """)
-        use_mlflow_docker = True
+    
+    if not IS_CLOUD:
+        st.sidebar.subheader("🔗 MLFlow Integration")
+        use_mlflow = st.sidebar.checkbox(
+            "📊 Логировать эксперименты в MLFlow", 
+            value=False, 
+            key="mlflow_checkbox",
+            help="Все эксперименты будут сохранены в MLFlow"
+        )
+
+        if use_mlflow:
+            st.sidebar.info("""
+            **MLFlow режим:**
+            - Метрики и параметры → PostgreSQL
+            - Модели и графики → Docker volume
+            - MLFlow UI: http://localhost:5050
+            
+            **Требования:**
+            - Запустить: `docker compose up -d`
+            """)
+            use_mlflow_docker = True
+    else:
+        # В Cloud режиме показываем предупреждение
+        st.sidebar.info("☁️ MLFlow недоступен в Streamlit Cloud")
 
     mlp_config = None
     if task_type in ["classification", "regression"]:

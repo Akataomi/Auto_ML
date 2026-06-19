@@ -281,8 +281,58 @@ def render_results(report: Dict, pipeline) -> None:
     
     # Save Model
     st.subheader("💾 Сохранение модели")
-    if st.button("Сохранить лучшую модель"):
-        target_col = st.session_state.get("target_selector", "target")
-        save_path = f"best_model_{target_col}.joblib"
-        pipeline.save_best_model(save_path)
-        st.success(f"Модель сохранена: {save_path}")
+    
+    # Инициализация состояния для сохранения модели
+    if "model_saved" not in st.session_state:
+        st.session_state.model_saved = False
+        st.session_state.model_save_path = None
+    
+    col1, col2 = st.columns([1, 3])
+    
+    with col1:
+        if st.button("💾 Сохранить лучшую модель", key="save_model_btn"):
+            try:
+                target_col = st.session_state.get("target_col", "target")
+                task_type = pipeline.config.task_type
+                save_path = f"models/best_model_{task_type}_{target_col}.joblib"
+                
+                # Создаем директорию если не существует
+                from pathlib import Path
+                Path("models").mkdir(exist_ok=True)
+                
+                pipeline.save_best_model(save_path)
+                st.session_state.model_saved = True
+                st.session_state.model_save_path = save_path
+                st.rerun()
+            except Exception as e:
+                st.error(f"❌ Ошибка сохранения: {str(e)}")
+    
+    with col2:
+        if st.session_state.model_saved and st.session_state.model_save_path:
+            save_path = st.session_state.model_save_path
+            
+            # Проверяем существует ли файл
+            import os
+            if os.path.exists(save_path):
+                file_size = os.path.getsize(save_path) / (1024 * 1024)  # MB
+                
+                st.success(f"✅ Модель сохранена: `{save_path}` ({file_size:.2f} MB)")
+                
+                # Кнопка для скачивания
+                with open(save_path, "rb") as f:
+                    st.download_button(
+                        label="📥 Скачать модель",
+                        data=f,
+                        file_name=f"best_model_{pipeline.config.task_type}.joblib",
+                        mime="application/octet-stream",
+                        key="download_model_btn"
+                    )
+                
+                # Кнопка чтобы сбросить и сохранить заново
+                if st.button("🔄 Сохранить заново", key="reset_save_btn"):
+                    st.session_state.model_saved = False
+                    st.session_state.model_save_path = None
+                    st.rerun()
+            else:
+                st.error(f"❌ Файл не найден: {save_path}")
+                st.session_state.model_saved = False

@@ -5,7 +5,11 @@ Streamlit application for automated machine learning.
 """
 
 
+import os
 import streamlit as st
+
+# Определение окружения: Cloud или Local
+IS_CLOUD = os.getenv("STREAMLIT_SERVER_PORT") is not None
 from automl_core.pipeline.config import PipelineConfig, PreprocessingConfig, ModelConfig
 from automl_core.pipeline.orchestrator import AutoMLPipeline
 from automl_core.data.datasets import get_all_datasets, load_dataset
@@ -34,6 +38,10 @@ def main():
     st.markdown(get_custom_css(), unsafe_allow_html=True)
 
     initialize_state()
+
+    # Banner для Cloud режима
+    if IS_CLOUD:
+        st.info("☁️ **Streamlit Cloud режим:** MLFlow логирование недоступно. Модели сохраняются временно.")
 
     st.title(" AutoML Expert System")
     st.markdown("---")
@@ -119,8 +127,9 @@ def main():
                     models=models_config,
                 )
 
-                use_mlflow = model_config.get("use_mlflow", False)
-                use_mlflow_docker = model_config.get("use_mlflow_docker", False)
+                # В Cloud режиме MLFlow недоступен
+                use_mlflow = model_config.get("use_mlflow", False) and not IS_CLOUD
+                use_mlflow_docker = model_config.get("use_mlflow_docker", False) and not IS_CLOUD
                 pipeline = AutoMLPipeline(config, use_mlflow=use_mlflow, use_mlflow_docker=use_mlflow_docker)
                 report = pipeline.run(
                     filepath=st.session_state.uploaded_file_path,
